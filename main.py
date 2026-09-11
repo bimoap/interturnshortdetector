@@ -9,6 +9,8 @@ STD_TEMP = 20.0
 def normalize_v(v, t):
     return v * ((TEMP_COEF + STD_TEMP) / (TEMP_COEF + t))
 
+st.set_page_config(page_title="Winding Inter-Turn Short Detector")
+
 st.title("Winding Inter-Turn Short Detector")
 
 # Configuration to enforce 6 decimal places
@@ -94,3 +96,16 @@ if st.button("Analyze Coil"):
     df_results.index.name = "Index"
     
     st.table(df_results)
+
+# Signature Block
+st.divider()
+st.markdown(
+    """
+    <div style='text-align: right; color: gray;'>
+        <small>Developed by <b>Bimo Adhi Prastya</b><br>
+        Coil Shop Technician & NT Production Engineer<br>
+        Buckley Systems</small>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
