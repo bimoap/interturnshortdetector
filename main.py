@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 
 # Constants
 TEMP_COEF = 234.5
@@ -19,7 +20,7 @@ v_drop_config = {
     )
 }
 
-# Define the index starting from 1 instead of 0
+# Define the index starting from 1
 pancake_index = pd.Index([1, 2, 3, 4, 5, 6], name="Pancake")
 
 col1, col2 = st.columns(2)
@@ -48,23 +49,36 @@ with col2:
     )
 
 if st.button("Analyze Coil"):
-    results = []
+    raw_devs = []
     
-    # Loop from 1 to 6 to match the pancake numbering
+    # Step 1: Calculate raw deviations for all pancakes
     for i in range(1, 7):
         b_20 = normalize_v(base_v.loc[i, 'V_drop'], base_temp)
         t_20 = normalize_v(test_v.loc[i, 'V_drop'], test_temp)
         dev = ((t_20 - b_20) / b_20) * 100
+        raw_devs.append(dev)
+        
+    # Step 2: Find the systemic shift (median of raw deviations)
+    systemic_shift = np.median(raw_devs)
+    
+    # Step 3: Apply correction and evaluate status
+    results = []
+    for i in range(1, 7):
+        # Subtract the temperature/systemic error
+        corrected_dev = raw_devs[i-1] - systemic_shift 
         
         status = "Pass"
-        if dev < -0.8: # Configurable sensitivity threshold
+        # 1 turn in 18 is a ~5.5% drop. 
+        # A threshold of -2.5% provides a massive buffer against probe placement noise.
+        if corrected_dev < -2.5: 
             status = "⚠️ Potential Short"
             
         results.append({
             "Pancake": i, 
-            "Deviation (%)": round(dev, 2), 
+            "Raw Dev (%)": round(raw_devs[i-1], 2),
+            "Correct Dev (%)": round(corrected_dev, 2),
             "Status": status
         })
         
-    # Set the Pancake column as the index for a cleaner results table
+    st.write(f"**Calculated Systemic Shift (Temperature/Setup Offset):** {systemic_shift:.2f}%")
     st.table(pd.DataFrame(results).set_index("Pancake"))
