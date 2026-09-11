@@ -94,7 +94,3 @@ if st.button("Analyze Coil"):
     df_results.index.name = "Index"
     
     st.table(df_results)
-    
-    # Render table with Pancake set as the true index
-    df_results = pd.DataFrame(results).set_index("Pancake")
-    st.table(df_results)
