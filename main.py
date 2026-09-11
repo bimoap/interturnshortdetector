@@ -80,7 +80,7 @@ if st.button("Analyze Coil"):
             status = "⚠️ Potential Short"
             
         results.append({
-            "Pancake": i,
+            "Pancake": i, 
             "Raw Dev (%)": round(raw_devs[i-1], 2),
             "Correct Dev (%)": round(corrected_dev, 2),
             "Status": status
