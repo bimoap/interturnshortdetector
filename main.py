@@ -1,62 +1,3 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-
-# Constants
-TEMP_COEF = 234.5
-STD_TEMP = 20.0
-
-def normalize_v(v, t):
-    return v * ((TEMP_COEF + STD_TEMP) / (TEMP_COEF + t))
-
-st.title("Winding Inter-Turn Short Detector")
-
-# Configuration to enforce 6 decimal places
-v_drop_config = {
-    "V_drop": st.column_config.NumberColumn(
-        "Voltage Drop (V)",
-        format="%.6f",
-        step=0.000001
-    )
-}
-
-# Define the index starting from 1
-pancake_index = pd.Index([1, 2, 3, 4, 5, 6], name="Pancake")
-
-col1, col2 = st.columns(2)
-with col1:
-    st.subheader("Baseline Data")
-    base_temp = st.number_input("Baseline Temp (°C)", value=13.1)
-    base_v = st.data_editor(
-        pd.DataFrame(
-            {"V_drop": [0.023221, 0.025036, 0.027025, 0.028925, 0.030764, 0.032783]}, 
-            index=pancake_index
-        ), 
-        key="base",
-        column_config=v_drop_config
-    )
-
-with col2:
-    st.subheader("Production Test Data")
-    test_temp = st.number_input("Test Temp (°C)", value=17.4)
-    test_v = st.data_editor(
-        pd.DataFrame(
-            {"V_drop": [0.023538, 0.025338, 0.027343, 0.029283, 0.031117, 0.032772]}, 
-            index=pancake_index
-        ), 
-        key="test",
-        column_config=v_drop_config
-    )
-
-# Adjustable threshold control
-st.divider()
-fail_threshold = st.number_input(
-    "Failure Threshold (%) - Triggers if drop exceeds this value:", 
-    value=-0.80, 
-    step=0.10,
-    format="%.2f"
-)
-
 if st.button("Analyze Coil"):
     raw_devs = []
     
@@ -80,7 +21,7 @@ if st.button("Analyze Coil"):
             status = "⚠️ Potential Short"
             
         results.append({
-            "Pancake": i, 
+            "Pancake": i,
             "Raw Dev (%)": round(raw_devs[i-1], 2),
             "Correct Dev (%)": round(corrected_dev, 2),
             "Status": status
@@ -88,6 +29,9 @@ if st.button("Analyze Coil"):
         
     st.write(f"**Calculated Systemic Shift (Temperature/Setup Offset):** {systemic_shift:.2f}%")
     
-    # Render table with Pancake set as the true index
-    df_results = pd.DataFrame(results).set_index("Pancake")
+    # Create the DataFrame and explicitly set the row index to start from 1 to 6
+    df_results = pd.DataFrame(results)
+    df_results.index = range(1, len(df_results) + 1)
+    df_results.index.name = "Index"
+    
     st.table(df_results)
