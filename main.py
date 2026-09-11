@@ -80,13 +80,20 @@ if st.button("Analyze Coil"):
             status = "⚠️ Potential Short"
             
         results.append({
-            "Pancake": i, 
+            "Pancake": i,
             "Raw Dev (%)": round(raw_devs[i-1], 2),
             "Correct Dev (%)": round(corrected_dev, 2),
             "Status": status
         })
         
     st.write(f"**Calculated Systemic Shift (Temperature/Setup Offset):** {systemic_shift:.2f}%")
+    
+    # Create the DataFrame and explicitly set the row index to start from 1 to 6
+    df_results = pd.DataFrame(results)
+    df_results.index = range(1, len(df_results) + 1)
+    df_results.index.name = "Index"
+    
+    st.table(df_results)
     
     # Render table with Pancake set as the true index
     df_results = pd.DataFrame(results).set_index("Pancake")
