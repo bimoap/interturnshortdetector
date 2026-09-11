@@ -48,6 +48,15 @@ with col2:
         column_config=v_drop_config
     )
 
+# Adjustable threshold control
+st.divider()
+fail_threshold = st.number_input(
+    "Failure Threshold (%) - Triggers if drop exceeds this value:", 
+    value=-0.80, 
+    step=0.10,
+    format="%.2f"
+)
+
 if st.button("Analyze Coil"):
     raw_devs = []
     
@@ -64,13 +73,10 @@ if st.button("Analyze Coil"):
     # Step 3: Apply correction and evaluate status
     results = []
     for i in range(1, 7):
-        # Subtract the temperature/systemic error
         corrected_dev = raw_devs[i-1] - systemic_shift 
         
         status = "Pass"
-        # 1 turn in 18 is a ~5.5% drop. 
-        # A threshold of -2.5% provides a massive buffer against probe placement noise.
-        if corrected_dev < -2.5: 
+        if corrected_dev < fail_threshold: 
             status = "⚠️ Potential Short"
             
         results.append({
@@ -81,4 +87,7 @@ if st.button("Analyze Coil"):
         })
         
     st.write(f"**Calculated Systemic Shift (Temperature/Setup Offset):** {systemic_shift:.2f}%")
-    st.table(pd.DataFrame(results).set_index("Pancake"))
+    
+    # Render table with Pancake set as the true index
+    df_results = pd.DataFrame(results).set_index("Pancake")
+    st.table(df_results)
