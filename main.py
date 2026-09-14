@@ -14,7 +14,6 @@ st.set_page_config(page_title="Winding Inter-Turn Short Detector")
 st.title("Winding Inter-Turn Short Detector")
 
 # --- Initialize Session State ---
-# This ensures data persists and widgets refresh correctly upon file upload
 if "app_state" not in st.session_state:
     st.session_state.base_temp = 13.1
     st.session_state.test_temp = 17.4
@@ -27,10 +26,8 @@ if "app_state" not in st.session_state:
 with st.sidebar:
     st.header("💾 Data Management")
     
-    # Uploader
     uploaded_file = st.file_uploader("Load Inputs (JSON)", type=["json"])
     if uploaded_file is not None:
-        # Prevent infinite loops by verifying file ID
         if st.session_state.get("last_uploaded") != uploaded_file.file_id:
             try:
                 loaded_data = json.load(uploaded_file)
@@ -38,7 +35,7 @@ with st.sidebar:
                 st.session_state.base_v = loaded_data.get("base_v", st.session_state.base_v)
                 st.session_state.test_temp = loaded_data.get("test_temp", 17.4)
                 st.session_state.test_v = loaded_data.get("test_v", st.session_state.test_v)
-                st.session_state.ui_key += 1 # Force widgets to refresh with new data
+                st.session_state.ui_key += 1
                 st.session_state.last_uploaded = uploaded_file.file_id
                 st.rerun()
             except Exception:
@@ -84,25 +81,46 @@ with st.sidebar:
         mime="application/json"
     )
 
+# Adjustable threshold and calculation controls
 st.divider()
-fail_threshold = st.number_input(
-    "Failure Threshold (%) - Triggers if drop exceeds this value:", 
-    value=-0.80, 
-    step=0.10,
-    format="%.2f"
-)
+col3, col4 = st.columns(2)
+with col3:
+    fail_threshold = st.number_input(
+        "Failure Threshold (%)", 
+        value=-0.80, 
+        step=0.10,
+        format="%.2f",
+        help="Triggers if the corrected voltage drop exceeds this negative percentage."
+    )
+with col4:
+    filter_method = st.radio(
+        "Shift Calculation Method:",
+        options=["1-Pass (Median)", "2-Pass (Outlier-Filtered Mean)"],
+        help="1-Pass is faster and works for 1-2 faulty pancakes. 2-Pass is highly accurate even if multiple pancakes fail."
+    )
 
 if st.button("Analyze Coil"):
     raw_devs = []
     
+    # Step 1: Calculate raw deviations
     for i in range(1, 7):
         b_20 = normalize_v(base_v_out.loc[i, 'V_drop'], base_temp_in)
         t_20 = normalize_v(test_v_out.loc[i, 'V_drop'], test_temp_in)
         dev = ((t_20 - b_20) / b_20) * 100
         raw_devs.append(dev)
         
-    systemic_shift = np.median(raw_devs)
+    # Step 2: Calculate Systemic Shift based on selected method
+    if filter_method == "1-Pass (Median)":
+        systemic_shift = np.median(raw_devs)
+    else:
+        # Pass 1: Find rough median
+        rough_shift = np.median(raw_devs)
+        # Pass 2: Filter out any raw dev that drops more than 1.0% below the rough shift
+        healthy_raws = [raw for raw in raw_devs if (raw - rough_shift) > -1.0]
+        # Pass 3: Calculate the mean of only the known-healthy pancakes
+        systemic_shift = np.mean(healthy_raws) if healthy_raws else rough_shift
     
+    # Step 3: Apply correction
     results = []
     for i in range(1, 7):
         corrected_dev = raw_devs[i-1] - systemic_shift 
@@ -118,7 +136,7 @@ if st.button("Analyze Coil"):
             "Status": status
         })
         
-    st.write(f"**Calculated Systemic Shift (Temperature/Setup Offset):** {systemic_shift:.2f}%")
+    st.write(f"**Calculated Systemic Shift ({filter_method}):** {systemic_shift:.2f}%")
     
     df_results = pd.DataFrame(results)
     df_results.index = range(1, len(df_results) + 1)
@@ -126,7 +144,7 @@ if st.button("Analyze Coil"):
     
     st.table(df_results)
     
-    # Export calculated results to CSV for record keeping
+    # Export results
     csv = df_results.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="📄 Download Result Report (CSV)",
