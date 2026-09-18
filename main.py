@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import json
+import altair as alt
 
 # Constants
 TEMP_COEF = 234.5
@@ -130,7 +131,7 @@ if st.button("Analyze Coil"):
             status = "⚠️ Potential Short"
             
         results.append({
-            "Pancake": i, 
+            "Pancake": str(i), # Converted to string for better categorical charting
             "Raw Dev (%)": round(raw_devs[i-1], 2),
             "Correct Dev (%)": round(corrected_dev, 2),
             "Status": status
@@ -142,6 +143,32 @@ if st.button("Analyze Coil"):
     df_results.index = range(1, len(df_results) + 1)
     df_results.index.name = "Index"
     
+    # --- Rendering the Chart ---
+    st.subheader("Visual Analysis")
+    
+    # Create the dynamic bar chart
+    bars = alt.Chart(df_results).mark_bar().encode(
+        x=alt.X('Pancake:N', title='Pancake Number', axis=alt.Axis(labelAngle=0)),
+        y=alt.Y('Correct Dev (%):Q', title='Corrected Deviation (%)'),
+        color=alt.condition(
+            alt.datum['Correct Dev (%)'] < fail_threshold,
+            alt.value('#d62728'),  # Red color for failed coils
+            alt.value('#1f77b4')   # Blue color for healthy coils
+        ),
+        tooltip=['Pancake', 'Correct Dev (%)', 'Status']
+    )
+    
+    # Overlay the threshold line
+    threshold_line = alt.Chart(pd.DataFrame({'threshold': [fail_threshold]})).mark_rule(
+        color='red', 
+        strokeDash=[5, 5]
+    ).encode(
+        y='threshold:Q'
+    )
+    
+    st.altair_chart(bars + threshold_line, use_container_width=True)
+    
+    # Render the data table below the chart
     st.table(df_results)
     
     # Export results
